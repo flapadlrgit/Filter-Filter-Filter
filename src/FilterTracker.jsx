@@ -1,11 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://uwfmxmjioncerzgebgvu.supabase.co";
-const SUPABASE_KEY = "sb_publishable_gbEok2oA6lLNQ8zYUVBlsw_PEpKA10A";
+const SUPABASE_URL = "https://vcdaqiftcriejbfzgorh.supabase.co";
+const SUPABASE_KEY = "sb_publishable_DPqCcDi8N4Eafr-amA78aw_M8PaRO29";
 const USER_ID = "ivan-default";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Keep Supabase alive by pinging every 5 days
+const PING_KEY = "supabase-last-ping";
+async function keepAlive() {
+  const last = localStorage.getItem(PING_KEY);
+  const fiveDays = 5 * 24 * 60 * 60 * 1000;
+  if (last && Date.now() - parseInt(last) < fiveDays) return;
+  try {
+    await supabase.from("filters").select("id").limit(1);
+    localStorage.setItem(PING_KEY, Date.now().toString());
+  } catch (_) {}
+}
 
 const PRESET_FILTERS = {
   home: [
@@ -13,6 +25,7 @@ const PRESET_FILTERS = {
     { name: "Water Filter (Fridge)", type: "time", defaultInterval: 180, unit: "days" },
     { name: "Under-Sink Water Filter", type: "time", defaultInterval: 180, unit: "days" },
     { name: "Whole-House Water Filter", type: "time", defaultInterval: 365, unit: "days" },
+    { name: "PUR Water Pitcher Filter", type: "time", defaultInterval: 60, unit: "days" },
     { name: "Humidifier Filter", type: "time", defaultInterval: 60, unit: "days" },
     { name: "Air Purifier Filter", type: "time", defaultInterval: 180, unit: "days" },
     { name: "Range Hood Filter", type: "time", defaultInterval: 90, unit: "days" },
@@ -330,7 +343,10 @@ export default function FilterTracker() {
     }
   }, []);
 
-  useEffect(() => { loadFilters(); }, [loadFilters]);
+  useEffect(() => {
+    keepAlive();
+    loadFilters();
+  }, [loadFilters]);
 
   const persistFilter = async (filter) => {
     setSyncStatus("saving");
@@ -465,7 +481,11 @@ export default function FilterTracker() {
             {displayed
               .sort((a, b) => ({ overdue: 0, "due-soon": 1, ok: 2 }[getStatus(a)] - { overdue: 0, "due-soon": 1, ok: 2 }[getStatus(b)]))
               .map(f => (
-                <FilterCard key={f.id} filter={f} onEdit={f => { setEditingFilter(f); setShowModal(true); }} onDelete={removeFilter} onMarkReplaced={markReplaced} />
+                <FilterCard key={f.id} filter={f}
+                  onEdit={f => { setEditingFilter(f); setShowModal(true); }}
+                  onDelete={removeFilter}
+                  onMarkReplaced={markReplaced}
+                />
               ))}
           </div>
         )}
