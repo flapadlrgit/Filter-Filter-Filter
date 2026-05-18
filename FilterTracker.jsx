@@ -1,6 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-const STORAGE_KEY = "filter-tracker-data";
+const SUPABASE_URL = "https://vcdaqiftcriejbfzgorh.supabase.co";
+const SUPABASE_KEY = "sb_publishable_DPqCcDi8N4Eafr-amA78aw_M8PaRO29";
+const USER_ID = "ivan-default";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Keep Supabase alive by pinging every 5 days
+const PING_KEY = "supabase-last-ping";
+async function keepAlive() {
+  const last = localStorage.getItem(PING_KEY);
+  const fiveDays = 5 * 24 * 60 * 60 * 1000;
+  if (last && Date.now() - parseInt(last) < fiveDays) return;
+  try {
+    await supabase.from("filters").select("id").limit(1);
+    localStorage.setItem(PING_KEY, Date.now().toString());
+  } catch (_) {}
+}
 
 const PRESET_FILTERS = {
   home: [
@@ -8,6 +25,7 @@ const PRESET_FILTERS = {
     { name: "Water Filter (Fridge)", type: "time", defaultInterval: 180, unit: "days" },
     { name: "Under-Sink Water Filter", type: "time", defaultInterval: 180, unit: "days" },
     { name: "Whole-House Water Filter", type: "time", defaultInterval: 365, unit: "days" },
+    { name: "PUR Water Pitcher Filter", type: "time", defaultInterval: 60, unit: "days" },
     { name: "Humidifier Filter", type: "time", defaultInterval: 60, unit: "days" },
     { name: "Air Purifier Filter", type: "time", defaultInterval: 180, unit: "days" },
     { name: "Range Hood Filter", type: "time", defaultInterval: 90, unit: "days" },
@@ -76,13 +94,9 @@ function FilterCard({ filter, onEdit, onDelete, onMarkReplaced }) {
     <div style={{
       background: "#16181e",
       border: `1px solid ${status !== "ok" ? cfg.color + "55" : "#2a2d38"}`,
-      borderRadius: 12,
-      padding: "18px 20px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      position: "relative",
-      transition: "border-color 0.2s",
+      borderRadius: 12, padding: "18px 20px",
+      display: "flex", flexDirection: "column", gap: 10,
+      position: "relative", transition: "border-color 0.2s",
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
         <div>
@@ -97,17 +111,10 @@ function FilterCard({ filter, onEdit, onDelete, onMarkReplaced }) {
           )}
         </div>
         <div style={{
-          background: cfg.bg,
-          color: cfg.color,
-          border: `1px solid ${cfg.color}44`,
-          borderRadius: 6,
-          padding: "3px 9px",
-          fontSize: 10,
-          fontFamily: "'DM Mono', monospace",
-          fontWeight: 700,
-          letterSpacing: 1.5,
-          whiteSpace: "nowrap",
-          flexShrink: 0,
+          background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}44`,
+          borderRadius: 6, padding: "3px 9px", fontSize: 10,
+          fontFamily: "'DM Mono', monospace", fontWeight: 700, letterSpacing: 1.5,
+          whiteSpace: "nowrap", flexShrink: 0,
         }}>
           {cfg.label}
         </div>
@@ -128,12 +135,7 @@ function FilterCard({ filter, onEdit, onDelete, onMarkReplaced }) {
         )}
       </div>
 
-      <div style={{
-        fontFamily: "'DM Mono', monospace",
-        fontSize: 13,
-        color: cfg.color,
-        fontWeight: 600,
-      }}>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: cfg.color, fontWeight: 600 }}>
         {dueText}
       </div>
 
@@ -141,58 +143,41 @@ function FilterCard({ filter, onEdit, onDelete, onMarkReplaced }) {
         <button onClick={() => onMarkReplaced(filter.id)} style={{
           flex: 1, background: "#1e2030", border: "1px solid #2e3150",
           borderRadius: 7, color: "#a0a8d0", fontSize: 12, padding: "7px 0",
-          cursor: "pointer", fontFamily: "'DM Mono', monospace", letterSpacing: 0.5,
-          transition: "all 0.15s",
+          cursor: "pointer", fontFamily: "'DM Mono', monospace", letterSpacing: 0.5, transition: "all 0.15s",
         }}
           onMouseOver={e => { e.target.style.background = "#252840"; e.target.style.color = "#fff"; }}
           onMouseOut={e => { e.target.style.background = "#1e2030"; e.target.style.color = "#a0a8d0"; }}
-        >
-          ✓ Mark Replaced
-        </button>
+        >✓ Mark Replaced</button>
         <button onClick={() => onEdit(filter)} style={{
           background: "#1e2030", border: "1px solid #2e3150",
           borderRadius: 7, color: "#a0a8d0", fontSize: 12, padding: "7px 14px",
-          cursor: "pointer", fontFamily: "'DM Mono', monospace",
-          transition: "all 0.15s",
+          cursor: "pointer", fontFamily: "'DM Mono', monospace", transition: "all 0.15s",
         }}
           onMouseOver={e => { e.target.style.background = "#252840"; e.target.style.color = "#fff"; }}
           onMouseOut={e => { e.target.style.background = "#1e2030"; e.target.style.color = "#a0a8d0"; }}
-        >
-          Edit
-        </button>
+        >Edit</button>
         <button onClick={() => onDelete(filter.id)} style={{
           background: "#1e2030", border: "1px solid #2e3150",
           borderRadius: 7, color: "#664444", fontSize: 12, padding: "7px 14px",
-          cursor: "pointer", fontFamily: "'DM Mono', monospace",
-          transition: "all 0.15s",
+          cursor: "pointer", fontFamily: "'DM Mono', monospace", transition: "all 0.15s",
         }}
           onMouseOver={e => { e.target.style.background = "#2a1e1e"; e.target.style.color = "#ff6666"; }}
           onMouseOut={e => { e.target.style.background = "#1e2030"; e.target.style.color = "#664444"; }}
-        >
-          ✕
-        </button>
+        >✕</button>
       </div>
     </div>
   );
 }
 
 const emptyForm = {
-  id: null,
-  name: "",
-  category: "home",
-  trackingType: "time",
-  intervalDays: 90,
-  lastChanged: new Date().toISOString().split("T")[0],
-  intervalMiles: 5000,
-  lastMileage: 0,
-  currentMileage: 0,
-  vehicleName: "",
+  id: null, name: "", category: "home", trackingType: "time",
+  intervalDays: 90, lastChanged: new Date().toISOString().split("T")[0],
+  intervalMiles: 5000, lastMileage: 0, currentMileage: 0, vehicleName: "",
 };
 
 function Modal({ filter, onSave, onClose }) {
   const [form, setForm] = useState(filter || emptyForm);
   const [preset, setPreset] = useState("");
-
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handlePreset = (val) => {
@@ -202,8 +187,7 @@ function Modal({ filter, onSave, onClose }) {
     const p = allPresets.find(x => x.name === val);
     if (p) {
       setForm(f => ({
-        ...f,
-        name: p.name,
+        ...f, name: p.name,
         category: PRESET_FILTERS.home.includes(p) ? "home" : "auto",
         trackingType: p.type,
         intervalDays: p.unit === "days" ? p.defaultInterval : f.intervalDays,
@@ -222,7 +206,10 @@ function Modal({ filter, onSave, onClose }) {
     color: "#e0e0f0", padding: "9px 12px", fontSize: 13, width: "100%",
     fontFamily: "'DM Mono', monospace", outline: "none", boxSizing: "border-box",
   };
-  const labelStyle = { fontSize: 11, color: "#666", fontFamily: "'DM Mono', monospace", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 5, display: "block" };
+  const labelStyle = {
+    fontSize: 11, color: "#666", fontFamily: "'DM Mono', monospace",
+    letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 5, display: "block",
+  };
 
   return (
     <div style={{
@@ -257,7 +244,6 @@ function Modal({ filter, onSave, onClose }) {
             <label style={labelStyle}>Filter Name</label>
             <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Furnace Filter" style={inputStyle} />
           </div>
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Category</label>
@@ -291,7 +277,7 @@ function Modal({ filter, onSave, onClose }) {
               {form.category === "auto" && (
                 <div>
                   <label style={labelStyle}>Vehicle Name (optional)</label>
-                  <input value={form.vehicleName} onChange={e => set("vehicleName", e.target.value)} placeholder="e.g. 2019 Toyota Camry" style={inputStyle} />
+                  <input value={form.vehicleName} onChange={e => set("vehicleName", e.target.value)} placeholder="e.g. 2020 Mazda CX-30" style={inputStyle} />
                 </div>
               )}
               <div>
@@ -325,9 +311,7 @@ function Modal({ filter, onSave, onClose }) {
             background: "#1e2030", border: "1px solid #2e3150",
             borderRadius: 9, color: "#a0a8d0", padding: "11px 18px",
             fontFamily: "'DM Mono', monospace", fontSize: 13, cursor: "pointer",
-          }}>
-            Cancel
-          </button>
+          }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -339,51 +323,78 @@ export default function FilterTracker() {
   const [showModal, setShowModal] = useState(false);
   const [editingFilter, setEditingFilter] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
-  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState("idle");
 
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try { setFilters(JSON.parse(saved)); } catch {}
+  const loadFilters = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("filters")
+        .select("*")
+        .eq("user_id", USER_ID)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      setFilters((data || []).map(row => ({ id: row.id, ...row.data })));
+    } catch (err) {
+      console.error("Failed to load:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (loaded) localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-  }, [filters, loaded]);
+    keepAlive();
+    loadFilters();
+  }, [loadFilters]);
 
-  const saveFilter = (form) => {
-    if (form.id) {
-      setFilters(fs => fs.map(f => f.id === form.id ? form : f));
-    } else {
-      setFilters(fs => [...fs, { ...form, id: Date.now().toString() }]);
+  const persistFilter = async (filter) => {
+    setSyncStatus("saving");
+    const { id, ...data } = filter;
+    try {
+      const { error } = await supabase
+        .from("filters")
+        .upsert({ id, user_id: USER_ID, data, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      setSyncStatus("saved");
+      setTimeout(() => setSyncStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Save failed:", err);
+      setSyncStatus("error");
     }
+  };
+
+  const removeFilter = async (id) => {
+    setSyncStatus("saving");
+    try {
+      const { error } = await supabase.from("filters").delete().eq("id", id);
+      if (error) throw error;
+      setFilters(fs => fs.filter(f => f.id !== id));
+      setSyncStatus("saved");
+      setTimeout(() => setSyncStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Delete failed:", err);
+      setSyncStatus("error");
+    }
+  };
+
+  const saveFilter = async (form) => {
+    const withId = form.id ? form : { ...form, id: Date.now().toString() };
+    setFilters(fs => form.id ? fs.map(f => f.id === form.id ? withId : f) : [...fs, withId]);
     setShowModal(false);
     setEditingFilter(null);
+    await persistFilter(withId);
   };
 
-  const deleteFilter = (id) => setFilters(fs => fs.filter(f => f.id !== id));
-
-  const markReplaced = (id) => {
-    setFilters(fs => fs.map(f => {
+  const markReplaced = async (id) => {
+    const updated = filters.map(f => {
       if (f.id !== id) return f;
-      if (f.trackingType === "time") {
-        return { ...f, lastChanged: new Date().toISOString().split("T")[0] };
-      } else {
-        return { ...f, lastMileage: f.currentMileage || f.lastMileage };
-      }
-    }));
-  };
-
-  const editFilter = (filter) => {
-    setEditingFilter(filter);
-    setShowModal(true);
-  };
-
-  const openAdd = () => {
-    setEditingFilter(null);
-    setShowModal(true);
+      return f.trackingType === "time"
+        ? { ...f, lastChanged: new Date().toISOString().split("T")[0] }
+        : { ...f, lastMileage: f.currentMileage || f.lastMileage };
+    });
+    setFilters(updated);
+    await persistFilter(updated.find(f => f.id === id));
   };
 
   const displayed = filters.filter(f => {
@@ -402,14 +413,13 @@ export default function FilterTracker() {
     { id: "auto", label: "Auto" },
   ];
 
+  const syncLabel = syncStatus === "saving" ? "⟳ Saving..."
+    : syncStatus === "saved" ? "✓ Saved to cloud"
+    : syncStatus === "error" ? "⚠ Save failed"
+    : "";
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#0b0d12",
-      fontFamily: "'DM Mono', monospace",
-      color: "#e0e0f0",
-      padding: "0 0 60px",
-    }}>
+    <div style={{ minHeight: "100vh", background: "#0b0d12", fontFamily: "'DM Mono', monospace", color: "#e0e0f0", padding: "0 0 60px" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; }
@@ -420,12 +430,7 @@ export default function FilterTracker() {
         select option { background: #13151c; }
       `}</style>
 
-      {/* Header */}
-      <div style={{
-        borderBottom: "1px solid #1a1d28",
-        padding: "24px 24px 20px",
-        position: "sticky", top: 0, background: "#0b0d12", zIndex: 10,
-      }}>
+      <div style={{ borderBottom: "1px solid #1a1d28", padding: "24px 24px 20px", position: "sticky", top: 0, background: "#0b0d12", zIndex: 10 }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
@@ -433,25 +438,21 @@ export default function FilterTracker() {
                 Filter Tracker
               </div>
               <div style={{ fontSize: 11, color: "#555", letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>
-                {filters.length} filter{filters.length !== 1 ? "s" : ""} tracked
+                {loading ? "Loading..." : `${filters.length} filter${filters.length !== 1 ? "s" : ""} tracked`}
                 {overdueCount > 0 && <span style={{ color: "#ff4444", marginLeft: 12 }}>⚠ {overdueCount} overdue</span>}
+                {syncLabel && <span style={{ marginLeft: 12, color: syncStatus === "error" ? "#ff4444" : syncStatus === "saved" ? "#00cc88" : "#888" }}>{syncLabel}</span>}
               </div>
             </div>
-            <button onClick={openAdd} style={{
-              background: "#3a4fd4", border: "none", borderRadius: 10,
-              color: "#fff", padding: "10px 18px", fontFamily: "'Syne', sans-serif",
-              fontWeight: 700, fontSize: 13, cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 6,
-              transition: "background 0.15s",
+            <button onClick={() => { setEditingFilter(null); setShowModal(true); }} style={{
+              background: "#3a4fd4", border: "none", borderRadius: 10, color: "#fff",
+              padding: "10px 18px", fontFamily: "'Syne', sans-serif", fontWeight: 700,
+              fontSize: 13, cursor: "pointer", transition: "background 0.15s",
             }}
               onMouseOver={e => e.currentTarget.style.background = "#4a5fe4"}
               onMouseOut={e => e.currentTarget.style.background = "#3a4fd4"}
-            >
-              + Add Filter
-            </button>
+            >+ Add Filter</button>
           </div>
 
-          {/* Tabs */}
           <div style={{ display: "flex", gap: 4, marginTop: 18 }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
@@ -461,37 +462,54 @@ export default function FilterTracker() {
                 padding: "6px 14px", fontFamily: "'DM Mono', monospace",
                 fontSize: 12, cursor: "pointer", transition: "all 0.15s",
                 ...(t.id === "alerts" && alertCount > 0 ? { color: activeTab === t.id ? "#ffaa00" : "#886600" } : {}),
-              }}>
-                {t.label}
-              </button>
+              }}>{t.label}</button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Content */}
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px 24px 0" }}>
-        {displayed.length === 0 ? (
-          <div style={{
-            textAlign: "center", padding: "60px 20px",
-            color: "#444", fontSize: 13, lineHeight: 2,
-          }}>
-            {activeTab === "alerts"
-              ? "✓ No filters need attention right now"
-              : <>No filters yet.{"\n"}<span style={{ color: "#3a4fd4", cursor: "pointer" }} onClick={openAdd}>Add your first filter →</span></>
-            }
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#444", fontSize: 13 }}>Loading your filters...</div>
+        ) : displayed.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "#444", fontSize: 13, lineHeight: 2 }}>
+            {activeTab === "alerts" ? "✓ No filters need attention right now"
+              : <><span>No filters yet. </span><span style={{ color: "#3a4fd4", cursor: "pointer" }} onClick={() => { setEditingFilter(null); setShowModal(true); }}>Add your first filter →</span></>}
           </div>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
             {displayed
-              .sort((a, b) => {
-                const order = { overdue: 0, "due-soon": 1, ok: 2 };
-                return order[getStatus(a)] - order[getStatus(b)];
-              })
+              .sort((a, b) => ({ overdue: 0, "due-soon": 1, ok: 2 }[getStatus(a)] - { overdue: 0, "due-soon": 1, ok: 2 }[getStatus(b)]))
               .map(f => (
-                <FilterCard
-                  key={f.id}
-                  filter={f}
-                  onEdit={editFilter}
-                  onDelete={deleteFilter}
-                  onMark
+                <FilterCard key={f.id} filter={f}
+                  onEdit={f => { setEditingFilter(f); setShowModal(true); }}
+                  onDelete={removeFilter}
+                  onMarkReplaced={markReplaced}
+                />
+              ))}
+          </div>
+        )}
+
+        {!loading && filters.length > 0 && (
+          <div style={{ display: "flex", gap: 18, marginTop: 28, paddingTop: 20, borderTop: "1px solid #1a1d28" }}>
+            {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#555" }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: v.dot }} />
+                {v.label}
+              </div>
+            ))}
+            <div style={{ marginLeft: "auto", fontSize: 11, color: "#444" }}>Alerts at 7 days / 500 mi</div>
+          </div>
+        )}
+      </div>
+
+      {showModal && (
+        <Modal
+          filter={editingFilter}
+          onSave={saveFilter}
+          onClose={() => { setShowModal(false); setEditingFilter(null); }}
+        />
+      )}
+    </div>
+  );
+}
